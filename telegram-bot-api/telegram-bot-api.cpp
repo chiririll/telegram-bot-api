@@ -4,6 +4,10 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
+#include "td/telegram/LinkManager.h"
+#include "td/telegram/td_api.h"
+#include "td/utils/Slice-decl.h"
+#include "td/utils/unique_ptr.h"
 #include "telegram-bot-api/ClientManager.h"
 #include "telegram-bot-api/ClientParameters.h"
 #include "telegram-bot-api/HttpConnection.h"
@@ -298,6 +302,27 @@ int main(int argc, char *argv[]) {
                                }
                                return parameters->webhook_proxy_ip_address_.init_host_port(address.str());
                              });
+  options.add_checked_option('\0', "tg-proxy",
+                              "Proxy link for connecting to telegram servers",
+                              [&](td::Slice link) {
+                                auto parsed_link = td::LinkManager::parse_internal_link(link);
+                                if (parsed_link != nullptr) {
+                                  auto link_object = parsed_link->get_internal_link_type_object();
+                                  if (link_object->get_id() == td_api::internalLinkTypeProxy::ID) {
+                                    auto proxy_link = static_cast<td_api::internalLinkTypeProxy *>(link_object.get());
+                                    if (proxy_link->proxy_ == nullptr) {
+                                      return td::Status::Error("Invalid proxy link: missing server and port");
+                                    }
+                                    auto r_proxy = td::Proxy::create_proxy(proxy_link->proxy_.get());
+                                    if (r_proxy.is_error()) {
+                                      return r_proxy.move_as_error();
+                                    }
+                                    parameters->proxy_ = td::make_unique<td::Proxy>(r_proxy.move_as_ok());
+                                    return td::Status::OK();
+                                  }
+                                }
+                                return td::Status::Error("Invalid proxy link");
+                              });
   options.add_check([&] {
     if (parameters->api_id_ <= 0 || parameters->api_hash_.empty()) {
       return td::Status::Error("You must provide valid api-id and api-hash obtained at https://my.telegram.org");

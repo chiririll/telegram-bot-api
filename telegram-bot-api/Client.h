@@ -252,6 +252,7 @@ class Client final : public WebhookActor::Callback {
   class TdOnOkCallback;
   class TdOnAuthorizationCallback;
   class TdOnInitCallback;
+  class TdOnProxyAddedCallback;
   class TdOnGetUserProfilePhotosCallback;
   class TdOnGetUserProfileAudiosCallback;
   class TdOnSendMessageCallback;

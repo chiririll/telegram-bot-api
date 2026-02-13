@@ -13,6 +13,8 @@
 
 #include "td/actor/actor.h"
 
+#include "td/telegram/net/Proxy.h"
+#include "td/utils/Slice-decl.h"
 #include "td/utils/common.h"
 #include "td/utils/List.h"
 #include "td/utils/port/IPAddress.h"
@@ -116,6 +118,8 @@ struct ClientParameters {
 
   td::int32 default_max_webhook_connections_ = 0;
   td::IPAddress webhook_proxy_ip_address_;
+
+  td::unique_ptr<td::Proxy> proxy_;
 
   double start_time_ = 0;
 

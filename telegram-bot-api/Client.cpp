@@ -4,6 +4,8 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
+#include "td/telegram/LinkManager.h"
+#include "td/telegram/net/Proxy.h"
 #include "telegram-bot-api/Client.h"
 
 #include "telegram-bot-api/ClientParameters.h"
@@ -5801,6 +5803,27 @@ class Client::TdOnInitCallback final : public TdQueryCallback {
   Client *client_;
 };
 
+class Client::TdOnProxyAddedCallback final : public TdQueryCallback {
+ public:
+  explicit TdOnProxyAddedCallback(Client *client) : client_(client) {
+  }
+
+  void on_result(object_ptr<td_api::Object> result) final {
+    if (result == nullptr || result->get_id() == td_api::error::ID) {
+      if (result != nullptr) {
+        auto error = move_object_as<td_api::error>(result);
+        LOG(WARNING) << "Failed to add proxy: " << error->code_ << " " << error->message_;
+      } else {
+        LOG(WARNING) << "Failed to add proxy: empty result";
+      }
+      client_->close();
+    }
+  }
+
+ private:
+  Client *client_;
+};
+
 class Client::TdOnGetUserProfilePhotosCallback final : public TdQueryCallback {
  public:
   TdOnGetUserProfilePhotosCallback(const Client *client, PromisedQueryPtr query)
@@ -8476,7 +8499,13 @@ void Client::on_update_authorization_state() {
       for (td::string option : {"disable_network_statistics", "disable_time_adjustment_protection", "ignore_file_names",
                                 "ignore_inline_thumbnails", "reuse_uploaded_photos_by_hash", "use_storage_optimizer"}) {
         send_request(make_object<td_api::setOption>(option, make_object<td_api::optionValueBoolean>(true)),
-                     td::make_unique<TdOnOkCallback>());
+                      td::make_unique<TdOnOkCallback>());
+      }
+
+      if (parameters_->proxy_ != nullptr) {
+        send_request(
+            make_object<td_api::addProxy>(parameters_->proxy_->get_proxy_object(), true),
+            td::make_unique<TdOnProxyAddedCallback>(this));
       }
 
       auto request = make_object<td_api::setTdlibParameters>();
